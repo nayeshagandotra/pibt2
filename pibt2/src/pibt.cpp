@@ -11,8 +11,6 @@ PIBT::PIBT(MAPF_Instance* _P)
 }
 
 void PIBT::plan_one_step(Agents A){
-  // planning
-  std::sort(A.begin(), A.end(), compareAgents);
   for (auto a : A) {
     // if the agent has next location, then skip
     if (a->v_next == nullptr) {
@@ -25,7 +23,8 @@ void PIBT::plan_one_step(Agents A){
 int PIBT::OptiPIBT(Agents A, int accumulated_penalty, int best_penalty){
   // set penalty to 0 initially
   timestep_penalty = 0;
-
+  // planning
+  std::sort(A.begin(), A.end(), compareAgents);
   plan_one_step(A);
 
   if (timestep_penalty == 0){
@@ -33,6 +32,7 @@ int PIBT::OptiPIBT(Agents A, int accumulated_penalty, int best_penalty){
     for (auto a: A){
         a->v_next_best = a->v_next;
     }
+    refresh_lists(A);
     return timestep_penalty + accumulated_penalty;
   }
 
@@ -41,6 +41,42 @@ int PIBT::OptiPIBT(Agents A, int accumulated_penalty, int best_penalty){
       best_penalty = timestep_penalty + accumulated_penalty;
   }
 
+  // pick highest priority agent 
+  auto ai = A[0];
+
+  // get candidates
+  Nodes C = ai->v_now->neighbor;
+  C.push_back(ai->v_now);
+  // randomize
+  std::shuffle(C.begin(), C.end(), *MT);
+
+  for (auto u: C){
+    // auto action_penalty =  //add action penalty code
+    auto action_penalty = 0;
+    if (action_penalty + accumulated_penalty > best_penalty){
+      continue; //bad action
+    }
+    // fix the action by updating occupied next
+    // reuse occupied next? insert in occupied next? 
+    // occupied_next_fixed[u->id] = ai;
+    // ai->v_next = u->id;
+  }
+
+}
+
+void PIBT::refresh_lists(Agents A){
+  // acting
+  for (auto a : A) {
+    // clear
+    if (occupied_now[a->v_now->id] == a) occupied_now[a->v_now->id] = nullptr;
+    occupied_next[a->v_next->id] = nullptr;
+    occupied_now[a->v_next->id] = a;
+    // update priority
+    a->elapsed = (a->v_next == a->g) ? 0 : a->elapsed + 1;
+    // reset params
+    a->v_now = a->v_next;
+    a->v_next = nullptr;
+  }
 }
 
 void PIBT::run()
@@ -68,8 +104,8 @@ void PIBT::run()
   int timestep = 0;
   while (true) {
     info(" ", "elapsed:", getSolverElapsedTime(), ", timestep:", timestep);
-    // plan one step
-    plan_one_step(A);
+    // plan one step using optipibt
+    OptiPIBT(A, 0, 100000000);
 
     // acting
     bool check_goal_cond = true;
@@ -77,17 +113,17 @@ void PIBT::run()
     for (auto a : A) {
       // clear
       if (occupied_now[a->v_now->id] == a) occupied_now[a->v_now->id] = nullptr;
-      occupied_next[a->v_next->id] = nullptr;
+      occupied_next[a->v_next_best->id] = nullptr;
       // set next location
-      config[a->id] = a->v_next;
-      occupied_now[a->v_next->id] = a;
+      config[a->id] = a->v_next_best;
+      occupied_now[a->v_next_best->id] = a;
       // check goal condition
-      check_goal_cond &= (a->v_next == a->g);
+      check_goal_cond &= (a->v_next_best == a->g);
       // update priority
-      a->elapsed = (a->v_next == a->g) ? 0 : a->elapsed + 1;
+      a->elapsed = (a->v_next_best == a->g) ? 0 : a->elapsed + 1;
       // reset params
-      a->v_now = a->v_next;
-      a->v_next = nullptr;
+      a->v_now = a->v_next_best;
+      a->v_next_best = nullptr;
     }
     // update plan
     solution.add(config);
