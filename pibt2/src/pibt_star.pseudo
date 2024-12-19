@@ -1,0 +1,76 @@
+//so far, based on the moves we have fixed, what is our penalty
+accumulated_penalty = 0; 
+best_penalty = inf;
+agents = all the agents;
+
+// note that occupied next temp and fixed need to be exclusive. so, if an agent is in
+// fixed, it needs to be removed from temp.
+// same with undecided: if it's in 
+
+// we basically need two versions of occupied next and now, for each level 
+occupied_now_temp = all agent positions currently;
+occupied_next_temp = null;
+occupied_next_fixed = null;
+
+// run until all vnextbests are filled
+int PIBT::OptiPIBT(agents, accumulated_penalty, best_penalty){
+    timestep_penalty = 0;
+    plan_one_step(agents) //here agents is a subset of agents
+    if (timestep_penalty == 0){
+        //ideal moves. return. 
+        // add some code to update v_next using v_next_temp.
+        // and clear all the v next temp stuff (that's in the main function?)
+        for (auto a: agents){
+            a->v_next_best = a->v_next_temp;
+        }
+        return timestep_penalty + accumulated_penalty;
+    }
+
+    // if (timestep_penalty + accumulated_penalty > best_penalty){
+    //     //this means this round of pibt sucks, abandon it
+    //     return best_penalty;
+    // }
+
+    // so far, current best is this
+    if (timestep_penalty + accumulated_penalty < best_penalty){
+        best_penalty = timestep_penalty + accumulated_penalty;
+        for (auto a: agents){
+            a->v_next_best = a->v_next_temp;
+        }
+    }
+    
+
+    // oops things are not ideal
+    shuffle agents; //???? should we?
+    ai = pick highest priority agent;   //pick random agent?
+
+    C = ai->v_now->neighbours;   //pick all vertices
+    for (auto u : C){ //for each possible action
+        // check if action makes any sense
+        if (action_penalty + accumulated_penalty > best_penalty){
+            conitnue //skip action, it's too expensive
+            // should we really do that? or skip after doing the pibt? 
+            // but then we'd have to do pibt for all the agents? 
+            // but isn't it possible that subsequent runs reduce the penalty somehow?
+            // only in the case of an inadmissible heuristic, right? 
+        }
+        // fix the action by updating occupied next
+        occupied_next_fixed[u->id] = ai;
+        ai->v_next_fixed = u->id;
+
+        // run optipibt_star on subset
+        agents_subset = agents - ai;
+        best_after_subset = OptiPIBT(agents_subset, accumulated_penalty + action_penalty, best_penalty);
+
+        if (best_after_subset < best_penalty){
+            best_penalty = new_best;
+            for (auto a: agents){
+                a->v_next_best = a->v_next_temp;
+            }
+        }
+
+        occupied_next_fixed.clear();
+        ai->v_next_fixed.clear();
+    }
+    return best_penalty; 
+}

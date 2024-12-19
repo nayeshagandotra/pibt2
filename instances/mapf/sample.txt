@@ -1,9 +1,9 @@
 ## ==== necessary ====
 ## .map file, put your maps in /map folder
-map_file=arena.map
+map_file=6x6.map
 
 ## number of agents
-agents=100
+agents=3
 
 ## ==== custom =======
 ## seed of randomization

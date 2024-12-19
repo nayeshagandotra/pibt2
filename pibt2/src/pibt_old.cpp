@@ -10,43 +10,17 @@ PIBT::PIBT(MAPF_Instance* _P)
   solver_name = PIBT::SOLVER_NAME;
 }
 
-void PIBT::plan_one_step(Agents A){
-  // planning
-  std::sort(A.begin(), A.end(), compareAgents);
-  for (auto a : A) {
-    // if the agent has next location, then skip
-    if (a->v_next == nullptr) {
-      // determine its next location
-      funcPIBT(a);
-    }
-  }
-}
-
-int PIBT::OptiPIBT(Agents A, int accumulated_penalty, int best_penalty){
-  // set penalty to 0 initially
-  timestep_penalty = 0;
-
-  plan_one_step(A);
-
-  if (timestep_penalty == 0){
-    //ideal moves. return. 
-    for (auto a: A){
-        a->v_next_best = a->v_next;
-    }
-    return timestep_penalty + accumulated_penalty;
-  }
-
-  // so far, current best is this
-  if (timestep_penalty + accumulated_penalty < best_penalty){
-      best_penalty = timestep_penalty + accumulated_penalty;
-  }
-
-}
-
 void PIBT::run()
 {
-  
+  // compare priority of agents
+  auto compare = [](Agent* a, const Agent* b) {
+    if (a->elapsed != b->elapsed) return a->elapsed > b->elapsed;
+    // use initial distance
+    if (a->init_d != b->init_d) return a->init_d > b->init_d;
+    return a->tie_breaker > b->tie_breaker;
+  };
   Agents A;
+
   // initialize
   for (int i = 0; i < P->getNum(); ++i) {
     Node* s = P->getStart(i);
@@ -68,8 +42,16 @@ void PIBT::run()
   int timestep = 0;
   while (true) {
     info(" ", "elapsed:", getSolverElapsedTime(), ", timestep:", timestep);
-    // plan one step
-    plan_one_step(A);
+
+    // planning
+    std::sort(A.begin(), A.end(), compare);
+    for (auto a : A) {
+      // if the agent has next location, then skip
+      if (a->v_next == nullptr) {
+        // determine its next location
+        funcPIBT(a);
+      }
+    }
 
     // acting
     bool check_goal_cond = true;
@@ -89,19 +71,17 @@ void PIBT::run()
       a->v_now = a->v_next;
       a->v_next = nullptr;
     }
+
     // update plan
     solution.add(config);
+
+    ++timestep;
 
     // success
     if (check_goal_cond) {
       solved = true;
-    }
-
-    if (solved){
       break;
     }
-
-    ++timestep;
 
     // failed
     if (timestep >= max_timestep || overCompTime()) {
@@ -136,10 +116,6 @@ bool PIBT::funcPIBT(Agent* ai, Agent* aj)
   // sort
   std::sort(C.begin(), C.end(), compare);
 
-  // calculate ideal dist for penalty purposes
-  int ideal_dist = pathDist(ai->id, C[0]);  // Distance to goal if taking ideal move
-  int actual_dist;
-
   for (auto u : C) {
     // avoid conflicts
     if (occupied_next[u->id] != nullptr) continue;
@@ -153,10 +129,6 @@ bool PIBT::funcPIBT(Agent* ai, Agent* aj)
     if (ak != nullptr && ak->v_next == nullptr) {
       if (!funcPIBT(ak, ai)) continue;  // replanning
     }
-
-    // find penalty
-    actual_dist = pathDist(ai->id, ai->v_next);
-    timestep_penalty += (actual_dist - ideal_dist); //0 if equal
     // success to plan next one step
     return true;
   }
@@ -164,10 +136,6 @@ bool PIBT::funcPIBT(Agent* ai, Agent* aj)
   // failed to secure node
   occupied_next[ai->v_now->id] = ai;
   ai->v_next = ai->v_now;
-
-  // find penalty
-  actual_dist = pathDist(ai->id, ai->v_next);
-  timestep_penalty += (actual_dist - ideal_dist); //0 if equal
   return false;
 }
 

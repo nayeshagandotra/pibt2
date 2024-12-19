@@ -22,6 +22,7 @@ private:
     int id;
     Node* v_now;        // current location
     Node* v_next;       // next location
+    Node* v_next_best;  // best next location
     Node* g;            // goal
     int elapsed;        // eta
     int init_d;         // initial distance
@@ -34,11 +35,25 @@ private:
   Agents occupied_now;
   Agents occupied_next;
 
+  // new additions
+  int timestep_penalty;
+  static bool compareAgents(const Agent* a, const Agent* b) {
+        if (a->elapsed != b->elapsed) return a->elapsed > b->elapsed;
+        if (a->init_d != b->init_d) return a->init_d > b->init_d;
+        return a->tie_breaker > b->tie_breaker;
+  }
+
   // option
   bool disable_dist_init = false;
 
   // result of priority inheritance: true -> valid, false -> invalid
   bool funcPIBT(Agent* ai, Agent* aj = nullptr);
+
+  // plan one step
+  void plan_one_step(Agents agents);
+
+  // main optimal function
+  int OptiPIBT(Agents A, int accumulated_penalty, int best_penalty);
 
   // main
   void run();
