@@ -55,6 +55,9 @@ private:
   // main optimal function
   int OptiPIBT(Agents A, int accumulated_penalty, int best_penalty);
 
+  // clear lists and update so we can run again
+  void refresh_lists(Agents A);
+
   // main
   void run();
 
