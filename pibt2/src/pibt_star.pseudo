@@ -14,6 +14,7 @@ occupied_next_fixed = null;
 
 // run until all vnextbests are filled
 int PIBT::OptiPIBT(agents, accumulated_penalty, best_penalty){
+    // best penalty is best so far. it might be better here.
     timestep_penalty = 0;
     plan_one_step(agents) //here agents is a subset of agents
     if (timestep_penalty == 0){
@@ -23,7 +24,7 @@ int PIBT::OptiPIBT(agents, accumulated_penalty, best_penalty){
         for (auto a: agents){
             a->v_next_best = a->v_next_temp;
         }
-        return timestep_penalty + accumulated_penalty;
+        return accumulated_penalty;
     }
 
     // if (timestep_penalty + accumulated_penalty > best_penalty){
@@ -55,6 +56,7 @@ int PIBT::OptiPIBT(agents, accumulated_penalty, best_penalty){
             // only in the case of an inadmissible heuristic, right? 
         }
         // fix the action by updating occupied next
+        // reuse occupied next? insert in occupied next? 
         occupied_next_fixed[u->id] = ai;
         ai->v_next_fixed = u->id;
 

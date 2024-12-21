@@ -10,6 +10,7 @@
 
 #pragma once
 #include "solver.hpp"
+#include <iostream>
 
 class PIBT : public MAPF_Solver
 {
