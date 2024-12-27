@@ -58,6 +58,7 @@ private:
 
   // clear lists and update so we can run again
   void refresh_lists(Agents A);
+  void unrefresh_lists(Agents A);
 
   // main
   void run();

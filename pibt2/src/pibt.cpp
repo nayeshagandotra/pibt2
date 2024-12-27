@@ -21,6 +21,12 @@ void PIBT::plan_one_step(Agents A){
 }
 
 int PIBT::OptiPIBT(Agents A, int accumulated_penalty, int best_penalty){
+
+  // empty A return condition
+  if (A.empty()) {
+    return accumulated_penalty;
+  }
+
   // set penalty to 0 initially
   timestep_penalty = 0;
   // planning
@@ -30,15 +36,18 @@ int PIBT::OptiPIBT(Agents A, int accumulated_penalty, int best_penalty){
   if (timestep_penalty == 0){
     //ideal moves. return. 
     for (auto a: A){
-        a->v_next_best = a->v_next;
+      a->v_next_best = a->v_next;
     }
-    refresh_lists(A);
+    // refresh_lists(A);
     return timestep_penalty + accumulated_penalty;
   }
 
   // so far, current best is this
   if (timestep_penalty + accumulated_penalty < best_penalty){
-      best_penalty = timestep_penalty + accumulated_penalty;
+    for (auto a: A){
+      a->v_next_best = a->v_next;
+    }
+    best_penalty = timestep_penalty + accumulated_penalty;
   }
 
   // pick highest priority agent 
@@ -57,7 +66,6 @@ int PIBT::OptiPIBT(Agents A, int accumulated_penalty, int best_penalty){
     return false;
   };
 
-
   // get candidates
   Nodes C = ai->v_now->neighbor;
   C.push_back(ai->v_now);
@@ -71,43 +79,84 @@ int PIBT::OptiPIBT(Agents A, int accumulated_penalty, int best_penalty){
   int actual_dist;
 
   for (auto u: C){   //include best action for completeness
+    refresh_lists(A); // clear the results from the last PIBT call
     actual_dist = pathDist(ai->id, u);
-    auto action_penalty =  (actual_dist - ideal_dist); //0 if equal
-    if (action_penalty + accumulated_penalty > best_penalty){
+    int action_penalty =  (actual_dist - ideal_dist); //0 if equal
+    if (action_penalty + accumulated_penalty >= best_penalty){
       continue; //bad action
     }
-    // fix the action by updating occupied next
-    // reserve
-    occupied_next[u->id] = ai;
-    ai->v_next = u;
-
+    if (occupied_next[u->id] != nullptr && occupied_next[u->id] != ai){
+      if (std::find(A.begin(), A.end(), occupied_next[u->id]) == A.end()) {
+        // The agent at vertex 'id' in occupied_next is not nullptr and not in A
+        // and it's not the current agent
+        // means it's been reserved by a previous fixed agent
+        continue;
+      }
+    }
     // get subset of agents
     Agents agents_subset;
     // Copy all pointers except for agent ai
     std::copy_if(A.begin(), A.end(), std::back_inserter(agents_subset), 
-                 [ai](Agent* agent) { return agent != ai; });
+                  [ai](Agent* agent) { return agent != ai; });
 
-    // run OptiPIBT recursive call
-    int best_after_subset = OptiPIBT(agents_subset, accumulated_penalty + action_penalty, best_penalty);
-
-    if (best_after_subset < best_penalty){
-      best_penalty = best_after_subset;
-      for (auto a: A){
-          a->v_next_best = a->v_next;
+    // if action is causing swap conflict, continue
+    auto ak = occupied_now[u->id];
+    if (ak != nullptr && ak != ai){
+      if (std::find(A.begin(), A.end(), ak) == A.end()) {
+        // The agent at vertex 'id' in occupied_now is not nullptr and not in A
+        // and it's not the current agent
+        // means it's been reserved by a previous fixed agent
+        // check if we have a swap conflict
+        if (ak->v_next == ai->v_now){
+          // the node we are trying to move to is currently occupied by an agent that 
+          // wants to move to us. since we are lower priority, we sacrifice this action.
+          continue;
+        }
+      }
+      // refresh_lists(A); // clear the results from the last PIBT call
+      // fix the action by updating occupied next
+      // reserve
+      occupied_next[u->id] = ai;
+      ai->v_next = u; //TODO:remove if not required by PIBT
+      // option 2: we have a non-planned agent here, we try to call funcPIBT to move the agent
+      // same priority swapping logic as before
+      if (!funcPIBT(ak, ai)){
+        // means ak has nowhere else to go. this agent should try going somewhere else
+        // also, since ak is stuck, we don't need to recurse for it?
+        // ak->v_next_best = ak->v_next;
+        // occupied_next[u->id] = ak;
+        // A.erase(std::remove(A.begin(), A.end(), ak), A.end());
+        continue;
+      }
+      else{
+        refresh_lists(A);
       }
     }
-    occupied_next.clear();
+    // fix the action by updating occupied next
+    // reserve
+    occupied_next[u->id] = ai;
+    ai->v_next = u; //TODO:remove if not required by PIBT
+    
+    // run OptiPIBT recursive call
+    int best_after_subset = OptiPIBT(agents_subset, accumulated_penalty + action_penalty, best_penalty);
+    // this should give it some new v_next values
+    if (best_after_subset < best_penalty){
+      best_penalty = best_after_subset;
+      ai->v_next_best = u;
+    }
   }
-  refresh_lists(A);
   return best_penalty;
 }
 
 void PIBT::refresh_lists(Agents A){
+  timestep_penalty = 0;
   // clear occupied next (local list) before next optipibt iter
   for (auto a : A) {
     // clear
-    occupied_next[a->v_next->id] = nullptr;
-    a->v_next = nullptr;
+    if (a->v_next != nullptr){
+      occupied_next[a->v_next->id] = nullptr;
+      a->v_next = nullptr;
+    }
   }
 }
 
@@ -140,6 +189,7 @@ void PIBT::run()
     
     // plan one step using optipibt
     OptiPIBT(A, 0, 100000000);
+    refresh_lists(A);
 
     // acting
     bool check_goal_cond = true;
@@ -147,7 +197,7 @@ void PIBT::run()
     for (auto a : A) {
       // clear
       if (occupied_now[a->v_now->id] == a) occupied_now[a->v_now->id] = nullptr;
-      occupied_next[a->v_next_best->id] = nullptr;  
+      // occupied_next[a->v_next_best->id] = nullptr;  
       // set next location
       config[a->id] = a->v_next_best;
       occupied_now[a->v_next_best->id] = a;
@@ -208,26 +258,42 @@ bool PIBT::funcPIBT(Agent* ai, Agent* aj)
 
   // calculate ideal dist for penalty purposes
   int ideal_dist = pathDist(ai->id, C[0]);  // Distance to goal if taking ideal move
-  std::cout << ideal_dist << std::endl;
+  // std::cout << ideal_dist << std::endl;
   int actual_dist;
+  int diff;
 
   for (auto u : C) {
     // avoid conflicts
     if (occupied_next[u->id] != nullptr) continue;
-    if (aj != nullptr && u == aj->v_now) continue;
+    if (aj != nullptr && u == aj->v_now) continue;  //prevents swap conflict
+
+    auto ak = occupied_now[u->id];
+    // explicitly prevent swap conflict in globally planned agents
+    // means u = v_now for pre-planned agent, so we can't swap
+    // aka this node is not valid, don't even think about it.
+    if (ak != nullptr && ak->v_next == ai->v_now){
+      // occupied_next[u->id] = nullptr;
+      continue;
+    } 
 
     // reserve
     occupied_next[u->id] = ai;
     ai->v_next = u;
 
-    auto ak = occupied_now[u->id];
     if (ak != nullptr && ak->v_next == nullptr) {
-      if (!funcPIBT(ak, ai)) continue;  // replanning
+      if (!funcPIBT(ak, ai)){
+        // means occupied_next will be equal to ak 
+        // since all other planning for ak failed
+        // occupied_next[u->id] = nullptr;
+        ai->v_next = nullptr;
+        continue;  // replanning failed
+      } 
     }
 
     // find penalty
     actual_dist = pathDist(ai->id, ai->v_next);
-    timestep_penalty += (actual_dist - ideal_dist); //0 if equal
+    diff = actual_dist - ideal_dist;
+    timestep_penalty += diff; //0 if equal
     // success to plan next one step
     return true;
   }
@@ -238,7 +304,8 @@ bool PIBT::funcPIBT(Agent* ai, Agent* aj)
 
   // find penalty
   actual_dist = pathDist(ai->id, ai->v_next);
-  timestep_penalty += (actual_dist - ideal_dist); //0 if equal
+  diff = actual_dist - ideal_dist;
+  timestep_penalty += diff; //0 if equal
   return false;
 }
 
