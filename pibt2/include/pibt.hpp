@@ -28,6 +28,7 @@ private:
     int elapsed;        // eta
     int init_d;         // initial distance
     float tie_breaker;  // epsilon, tie-breaker
+    bool is_conflicting; //should we recurse through all the actions?
   };
   using Agents = std::vector<Agent*>;
 
@@ -35,6 +36,9 @@ private:
   // work as reservation table
   Agents occupied_now;
   Agents occupied_next;
+
+  // <agent-id, is_conflicting>, whether the agent is conflicting or not
+  // helps define whether we should recurse through all the action options for the agent.
 
   // new additions
   int timestep_penalty;
@@ -55,10 +59,11 @@ private:
 
   // main optimal function
   int OptiPIBT(Agents A, int accumulated_penalty, int best_penalty);
+  void print_penalty(const std::string& filename, int penalty);
+  void check_potential_conflicts(Agents A);
 
   // clear lists and update so we can run again
   void refresh_lists(Agents A);
-  void unrefresh_lists(Agents A);
 
   // main
   void run();

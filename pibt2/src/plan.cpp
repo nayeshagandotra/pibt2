@@ -174,7 +174,7 @@ bool Plan::validate(const Config& starts) const
           return false;
         }
         if (v_i_t == v_j_t_1 && v_i_t_1 == v_j_t) {
-          warn("validation, swap conflict");
+          warn("validation, swap conflict at t=" + std::to_string(t) + "v=" + std::to_string(v_i_t->id));
           return false;
         }
       }
