@@ -58,7 +58,7 @@ private:
   void plan_one_step(Agents agents);
 
   // main optimal function
-  int OptiPIBT(Agents A, int accumulated_penalty, int best_penalty);
+  std::pair<bool, int> OptiPIBT(Agents A, Agent* aj, int accumulated_penalty, int best_penalty);
   void print_penalty(const std::string& filename, int penalty);
   void check_potential_conflicts(Agents A);
 
