@@ -52,7 +52,7 @@ void PIBT::plan_one_step(Agents A){
   }
 }
 
-  std::pair<bool, int> PIBT::OptiPIBT(Agents A, Agent* aj, int accumulated_penalty, int best_penalty){
+std::pair<bool, int> PIBT::OptiPIBT(Agents A, Agent* aj, int accumulated_penalty, int best_penalty){
 
   // empty A return condition
   if (A.empty()) {
@@ -123,7 +123,8 @@ void PIBT::plan_one_step(Agents A){
   int actual_dist;
 
   // counting number of skipped actions
-  int n_avail_acts, n_skipped_acts;
+  int n_avail_acts = 0;
+  int n_skipped_acts = 0;
 
   for (auto u: C){   //include best action for completeness
     refresh_lists(A); // clear the results from the last PIBT call

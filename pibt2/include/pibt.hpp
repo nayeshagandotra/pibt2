@@ -18,6 +18,10 @@ public:
   static const std::string SOLVER_NAME;
 
 private:
+
+  struct Agent; 
+  using Agents = std::vector<Agent*>; 
+
   // PIBT agent
   struct Agent {
     int id;
@@ -29,16 +33,15 @@ private:
     int init_d;         // initial distance
     float tie_breaker;  // epsilon, tie-breaker
     bool is_conflicting; //should we recurse through all the actions?
+    Agents* group;        // group this belongs to
   };
-  using Agents = std::vector<Agent*>;
 
   // <node-id, agent>, whether the node is occupied or not
   // work as reservation table
   Agents occupied_now;
   Agents occupied_next;
 
-  // <agent-id, is_conflicting>, whether the agent is conflicting or not
-  // helps define whether we should recurse through all the action options for the agent.
+  using Groups = std::vector<Agents>;
 
   // new additions
   int timestep_penalty;

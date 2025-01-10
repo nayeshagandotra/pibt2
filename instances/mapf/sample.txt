@@ -4,7 +4,7 @@ map_file=random-32-32-20.map
 ## map_file=den520d.map
 
 ## number of agents
-agents=70
+agents=50
 
 ## ==== custom =======
 ## seed of randomization
