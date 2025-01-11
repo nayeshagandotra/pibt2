@@ -26,22 +26,6 @@ void PIBT::print_penalty(const std::string& filename, int penalty) {
     outFile.close();
 }
 
-void PIBT::check_potential_conflicts(Agents A){
-  for (auto a : A){
-    if (!a->is_conflicting){
-      // get candidates
-      Nodes C = a->v_now->neighbor;
-      C.push_back(a->v_now);
-      for (auto u: C){
-        if (occupied_now[u->id] != nullptr && occupied_now[u->id] != a){
-          occupied_now[u->id]->is_conflicting = true;
-          a->is_conflicting = true;
-        }
-      }
-    } 
-  }
-}
-
 void PIBT::plan_one_step(Agents A){
   for (auto a : A) {
     // if the agent has next location, then skip
@@ -49,6 +33,66 @@ void PIBT::plan_one_step(Agents A){
       // determine its next 
       funcPIBT(a);
     }
+  }
+}
+
+void PIBT::group_optipibt(Agents A){
+  this->timestep_penalty = 0;
+  plan_one_step(A);
+
+  // Use an iterator to traverse the groups vector
+  for (size_t i = 0; i < groups.size(); ++i) {
+    Agents* g = groups[i];
+    OptiPIBT(*g, nullptr, 0, 100000000);
+    // If new groups are added, they will be processed in the next iteration
+  }
+
+  for (auto a : A){
+    if (a->v_next_best == nullptr){
+      a->v_next_best = a->v_next; // for non-conflicting agents, this should be populated with the pibt answers
+    }
+  }
+}
+
+void PIBT::addToGroup(Agent* ai, Agent* aj){
+  Agents* ng;
+  if (ai->group != nullptr && aj->group == nullptr){
+    ng = ai->group;
+    // add aj to group- assume ai is already in g
+    ng->push_back(aj);
+    aj->group = ng;
+  } else if (aj->group != nullptr && ai->group == nullptr){
+    ng = aj->group;
+    ng->push_back(ai);
+    ai->group = ng;
+  } else if (aj->group == nullptr && ai->group == nullptr){
+    // neither have group
+    ng = new Agents();
+    ng->push_back(ai);
+    ng->push_back(aj);
+    ai->group = ng;
+    aj->group = ng;
+    groups.push_back(ng);
+  } else if ((aj->group != nullptr && ai->group != nullptr) && aj->group != ai->group){
+    // merge groups
+    Agents* group1 = ai->group;
+    Agents* group2 = aj->group;
+
+    // Create a new group that contains all agents from both groups
+    Agents* new_group = new Agents();
+    new_group->insert(new_group->end(), group1->begin(), group1->end());
+    new_group->insert(new_group->end(), group2->begin(), group2->end());
+
+    // Update group pointers for all agents in both groups
+    for (auto& agent : *group1) {
+      agent->group = new_group;
+    }
+    for (auto& agent : *group2) {
+      agent->group = new_group;
+    }
+
+    // Add the new group to the groups list
+    groups.push_back(new_group);
   }
 }
 
@@ -60,16 +104,23 @@ std::pair<bool, int> PIBT::OptiPIBT(Agents A, Agent* aj, int accumulated_penalty
   }
 
   // set penalty to 0 initially
-  timestep_penalty = 0;
+  this->timestep_penalty = 0;
+  refresh_lists(A);
   // planning
   std::sort(A.begin(), A.end(), compareAgents);
-  plan_one_step(A);
+  // plan_one_step(A);
 
-  if (timestep_penalty == 0){
-    //ideal moves. return. 
+  if (timestep_penalty + accumulated_penalty < best_penalty){
     for (auto a: A){
       a->v_next_best = a->v_next;
     }
+  }
+
+  if (this->timestep_penalty == 0){
+    //ideal moves. return. 
+    // for (auto a: A){
+    //   a->v_next_best = a->v_next;
+    // }
     // refresh_lists(A);
     return std::make_pair(false, accumulated_penalty);
   }
@@ -91,11 +142,7 @@ std::pair<bool, int> PIBT::OptiPIBT(Agents A, Agent* aj, int accumulated_penalty
   
 
   // so far, current best is this
-  if (timestep_penalty + accumulated_penalty < best_penalty){
-    // for (auto a: A){
-    ai->v_next_best = ai->v_next;
-    // }
-  }
+  
 
   // compare two nodes
   auto compare = [&](Node* const v, Node* const u) {
@@ -139,6 +186,7 @@ std::pair<bool, int> PIBT::OptiPIBT(Agents A, Agent* aj, int accumulated_penalty
       // The agent at vertex 'id' in occupied_next is not nullptr and not in A
       // and it's not the current agent
       // means it's been reserved by a previous fixed agent
+      addToGroup(occupied_next[u->id], ai);
       occupied_next[u->id]->is_conflicting = true;
       ai->is_conflicting = true;
       n_skipped_acts += 1;
@@ -156,6 +204,7 @@ std::pair<bool, int> PIBT::OptiPIBT(Agents A, Agent* aj, int accumulated_penalty
         // means it's been reserved by a previous fixed agent
         // // check if we have a swap conflict
         if (ak->v_next == ai->v_now){
+          addToGroup(ai, ak);
           ak->is_conflicting = true;
           ai->is_conflicting = true;
           // the node we are trying to move to is currently occupied by an agent that 
@@ -167,6 +216,7 @@ std::pair<bool, int> PIBT::OptiPIBT(Agents A, Agent* aj, int accumulated_penalty
         if (ak->v_next == nullptr){
           auto [failed, bas] = OptiPIBT(agents_subset, ak, accumulated_penalty + action_penalty, best_penalty);
           if (failed){
+            addToGroup(ai, ak);
             ak->is_conflicting = true;
             ai->is_conflicting = true;
             n_skipped_acts += 1;
@@ -190,10 +240,10 @@ std::pair<bool, int> PIBT::OptiPIBT(Agents A, Agent* aj, int accumulated_penalty
       best_penalty = best_after_subset;
       ai->v_next_best = u;
     }
-    if (!ai->is_conflicting){
-      // refresh_lists(A); // clear the results from the last PIBT call
-      break;
-    }
+    // if (!ai->is_conflicting){
+    //   // refresh_lists(A); // clear the results from the last PIBT call
+    //   break;
+    // }
   }
   // either all moves have failed or next best has been found
   if (n_skipped_acts == n_avail_acts){
@@ -245,12 +295,15 @@ void PIBT::run()
     info(" ", "elapsed:", getSolverElapsedTime(), ", timestep:", timestep);
     
     // plan one step using optipibt
-    auto [f, os_penalty] = OptiPIBT(A, nullptr, 0, 100000000);
-    print_penalty("costs.txt", os_penalty);
+    // auto [f, os_penalty] = OptiPIBT(A, nullptr, 0, 100000000);
+    // print_penalty("costs.txt", os_penalty);
+    group_optipibt(A);
     refresh_lists(A);
     for (auto a : A) {
+      a->group = nullptr;
       a->is_conflicting = false;
     }
+    groups.clear();
 
     // acting
     bool check_goal_cond = true;
@@ -309,7 +362,7 @@ bool PIBT::funcPIBT(Agent* ai, Agent* aj)
     return false;
   };
 
-  int tsp = timestep_penalty;
+  // int tsp = timestep_penalty;
 
   // get candidates
   Nodes C = ai->v_now->neighbor;
@@ -321,7 +374,6 @@ bool PIBT::funcPIBT(Agent* ai, Agent* aj)
 
   // calculate ideal dist for penalty purposes
   int ideal_dist = pathDist(ai->id, C[0]);  // Distance to goal if taking ideal move
-  // std::cout << ideal_dist << std::endl;
   int actual_dist;
   int diff;
 
@@ -330,9 +382,11 @@ bool PIBT::funcPIBT(Agent* ai, Agent* aj)
     if (occupied_next[u->id] != nullptr){
       ai->is_conflicting = true;
       occupied_next[u->id]->is_conflicting = true;
+      addToGroup(ai, occupied_next[u->id]);
       continue;
     } 
     if (aj != nullptr && u == aj->v_now){
+      // addToGroup(ai, aj);
       aj->is_conflicting = true;
       ai->is_conflicting = true;
       continue;  //prevents swap conflict
@@ -342,11 +396,13 @@ bool PIBT::funcPIBT(Agent* ai, Agent* aj)
     // explicitly prevent swap conflict in globally planned agents
     // means u = v_now for pre-planned agent, so we can't swap
     // aka this node is not valid, don't even think about it.
-    if (ak != nullptr && ak->v_next == ai->v_now){
-      // occupied_next[u->id] = nullptr;
-      ak->is_conflicting = true;
-      ai->is_conflicting = true;
-      continue;
+    if (ak != nullptr){
+      if (ak->v_next == ai->v_now){
+        addToGroup(ai, ak);
+        ak->is_conflicting = true;
+        ai->is_conflicting = true;
+        continue;
+      }
     } 
 
     // reserve
@@ -354,25 +410,21 @@ bool PIBT::funcPIBT(Agent* ai, Agent* aj)
     ai->v_next = u;
 
     if (ak != nullptr && ak->v_next == nullptr) {
+      addToGroup(ai, ak);
       if (!funcPIBT(ak, ai)){
         ak->is_conflicting = true;
         ai->is_conflicting = true;
         // means occupied_next will be equal to ak 
         // since all other planning for ak failed
-        // occupied_next[u->id] = nullptr;
         ai->v_next = nullptr;
         continue;  // replanning failed
       }
-      if (tsp != timestep_penalty){
-        ak->is_conflicting = true;
-        ai->is_conflicting = true;
-      } 
     }
 
     // find penalty
     actual_dist = pathDist(ai->id, ai->v_next);
     diff = actual_dist - ideal_dist;
-    timestep_penalty += diff; //0 if equal
+    this->timestep_penalty += diff; //0 if equal
     // success to plan next one step
     return true;
   }
@@ -384,7 +436,7 @@ bool PIBT::funcPIBT(Agent* ai, Agent* aj)
   // find penalty
   actual_dist = pathDist(ai->id, ai->v_next);
   diff = actual_dist - ideal_dist;
-  timestep_penalty += diff; //0 if equal
+  this->timestep_penalty += diff; //0 if equal
   return false;
 }
 

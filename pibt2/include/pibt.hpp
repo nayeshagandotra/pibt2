@@ -41,10 +41,12 @@ private:
   Agents occupied_now;
   Agents occupied_next;
 
-  using Groups = std::vector<Agents>;
+  using Groups = std::vector<Agents*>;
+
+  Groups groups;
 
   // new additions
-  int timestep_penalty;
+  volatile int timestep_penalty;
   static bool compareAgents(const Agent* a, const Agent* b) {
         if (a->elapsed != b->elapsed) return a->elapsed > b->elapsed;
         if (a->init_d != b->init_d) return a->init_d > b->init_d;
@@ -55,6 +57,7 @@ private:
   bool disable_dist_init = false;
 
   // result of priority inheritance: true -> valid, false -> invalid
+  void addToGroup(Agent* ai, Agent* aj);
   bool funcPIBT(Agent* ai, Agent* aj = nullptr);
 
   // plan one step
@@ -62,8 +65,8 @@ private:
 
   // main optimal function
   std::pair<bool, int> OptiPIBT(Agents A, Agent* aj, int accumulated_penalty, int best_penalty);
+  void group_optipibt(Agents A);
   void print_penalty(const std::string& filename, int penalty);
-  void check_potential_conflicts(Agents A);
 
   // clear lists and update so we can run again
   void refresh_lists(Agents A);
