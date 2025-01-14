@@ -4,6 +4,7 @@
 #include <hca.hpp>
 #include <iostream>
 #include <pibt.hpp>
+#include <pibt_old.hpp>
 #include <pibt_plus.hpp>
 #include <problem.hpp>
 #include <push_and_swap.hpp>
@@ -123,6 +124,8 @@ std::unique_ptr<MAPF_Solver> getSolver(const std::string solver_name,
     solver = std::make_unique<HCA>(P);
   } else if (solver_name == "PIBT_PLUS") {
     solver = std::make_unique<PIBT_PLUS>(P);
+  } else if (solver_name == "PIBTOLD") {
+    solver = std::make_unique<PIBTOLD>(P);
   } else if (solver_name == "PushAndSwap") {
     solver = std::make_unique<PushAndSwap>(P);
   } else {

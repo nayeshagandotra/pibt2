@@ -1,16 +1,16 @@
-#include "../include/pibt.hpp"
+#include "../include/pibt_old.hpp"
 
-const std::string PIBT::SOLVER_NAME = "PIBT";
+const std::string PIBTOLD::SOLVER_NAME = "PIBTOLD";
 
-PIBT::PIBT(MAPF_Instance* _P)
+PIBTOLD::PIBTOLD(MAPF_Instance* _P)
     : MAPF_Solver(_P),
       occupied_now(Agents(G->getNodesSize(), nullptr)),
       occupied_next(Agents(G->getNodesSize(), nullptr))
 {
-  solver_name = PIBT::SOLVER_NAME;
+  solver_name = PIBTOLD::SOLVER_NAME;
 }
 
-void PIBT::run()
+void PIBTOLD::run()
 {
   // compare priority of agents
   auto compare = [](Agent* a, const Agent* b) {
@@ -93,7 +93,7 @@ void PIBT::run()
   for (auto a : A) delete a;
 }
 
-bool PIBT::funcPIBT(Agent* ai, Agent* aj)
+bool PIBTOLD::funcPIBT(Agent* ai, Agent* aj)
 {
   // compare two nodes
   auto compare = [&](Node* const v, Node* const u) {
@@ -139,7 +139,7 @@ bool PIBT::funcPIBT(Agent* ai, Agent* aj)
   return false;
 }
 
-void PIBT::setParams(int argc, char* argv[])
+void PIBTOLD::setParams(int argc, char* argv[])
 {
   struct option longopts[] = {
       {"disable-dist-init", no_argument, 0, 'd'},
@@ -158,9 +158,9 @@ void PIBT::setParams(int argc, char* argv[])
   }
 }
 
-void PIBT::printHelp()
+void PIBTOLD::printHelp()
 {
-  std::cout << PIBT::SOLVER_NAME << "\n"
+  std::cout << PIBTOLD::SOLVER_NAME << "\n"
             << "  -d --disable-dist-init"
             << "        "
             << "disable initialization of priorities "

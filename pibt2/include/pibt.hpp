@@ -11,6 +11,8 @@
 #pragma once
 #include "solver.hpp"
 #include <iostream>
+#include <algorithm>
+#include <set>
 
 class PIBT : public MAPF_Solver
 {
@@ -40,6 +42,7 @@ private:
   // work as reservation table
   Agents occupied_now;
   Agents occupied_next;
+  Agents A_copy;
 
   using Groups = std::vector<Agents*>;
 
@@ -47,6 +50,9 @@ private:
 
   // new additions
   volatile int timestep_penalty;
+  volatile int best_penalty;
+  volatile int group_no;
+
   static bool compareAgents(const Agent* a, const Agent* b) {
         if (a->elapsed != b->elapsed) return a->elapsed > b->elapsed;
         if (a->init_d != b->init_d) return a->init_d > b->init_d;
@@ -57,16 +63,17 @@ private:
   bool disable_dist_init = false;
 
   // result of priority inheritance: true -> valid, false -> invalid
-  void addToGroup(Agent* ai, Agent* aj);
+  bool addToGroup(Agent* ai, Agent* aj); //returns if there's a new addition to the group
   bool funcPIBT(Agent* ai, Agent* aj = nullptr);
 
   // plan one step
   void plan_one_step(Agents agents);
 
   // main optimal function
-  std::pair<bool, int> OptiPIBT(Agents A, Agent* aj, int accumulated_penalty, int best_penalty);
+  std::pair<bool, int> OptiPIBT(Agents A, Agent* aj, int accumulated_penalty);
   void group_optipibt(Agents A);
   void print_penalty(const std::string& filename, int penalty);
+  int calculate_penalty(Agent* a);
 
   // clear lists and update so we can run again
   void refresh_lists(Agents A);
