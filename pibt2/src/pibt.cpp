@@ -67,11 +67,10 @@ void PIBT::group_optipibt(Agents A){
   group_no = 0;
   std::sort(A.begin(), A.end(), compareAgents);
   plan_one_step(A);
-  print_penalty("costs.txt", timestep_penalty);  // LOGGING
+  // print_penalty("costs.txt", timestep_penalty);  // LOGGING
 
   // Use an iterator to traverse the groups vector
   for (size_t i = 0; i < groups.size(); ++i) {
-    size_t initial_size = groups.size();
     group_no = i;
     Agents* g = groups[i];
     A_copy = *g;
@@ -374,9 +373,9 @@ void PIBT::run()
       // check goal condition
       check_goal_cond &= (a->v_next_best == a->g);
 
-      if (timestep > 50 && a->v_now != a->g){
-        std::cout << "the problem is" << a->id << " " << a->g->pos.x << " " << a->g->pos.y << std::endl;
-      }
+      // if (timestep > 50 && a->v_now != a->g){
+      //   std::cout << "the problem is" << a->id << " " << a->g->pos.x << " " << a->g->pos.y << std::endl;
+      // }
       // update priority
       a->elapsed = (a->v_next_best == a->g) ? 0 : a->elapsed + 1;
       // reset params

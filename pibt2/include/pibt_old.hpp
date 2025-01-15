@@ -37,6 +37,9 @@ private:
   // option
   bool disable_dist_init = false;
 
+  void print_penalty(const std::string& filename, int penalty);
+  int calculate_penalty(Agent* a);
+
   // result of priority inheritance: true -> valid, false -> invalid
   bool funcPIBT(Agent* ai, Agent* aj = nullptr);
 

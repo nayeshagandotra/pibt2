@@ -1,4 +1,5 @@
 #include "../include/pibt_old.hpp"
+#include <fstream>
 
 const std::string PIBTOLD::SOLVER_NAME = "PIBTOLD";
 
@@ -8,6 +9,47 @@ PIBTOLD::PIBTOLD(MAPF_Instance* _P)
       occupied_next(Agents(G->getNodesSize(), nullptr))
 {
   solver_name = PIBTOLD::SOLVER_NAME;
+}
+
+void PIBTOLD::print_penalty(const std::string& filename, int penalty) {
+    // std::string output_dir = "code/output/";
+    std::string full_filename = filename;
+    
+    std::ofstream outFile(full_filename, std::ios::app);  // Open in append mode
+    if (!outFile) {
+        std::cerr << "Error opening file: " << full_filename << "\n";
+        return;
+    }
+
+    // Write start positions
+    outFile << penalty << "\n";
+    outFile.close();
+}
+
+int PIBTOLD::calculate_penalty(Agent* a) {
+
+  // A two nodes
+  auto compare = [&](Node* const v, Node* const u) {
+    int d_v = pathDist(a->id, v);
+    int d_u = pathDist(a->id, u);
+    if (d_v != d_u) return d_v < d_u;
+    // tie break
+    if (occupied_now[v->id] != nullptr && occupied_now[u->id] == nullptr)
+      return false;
+    if (occupied_now[v->id] == nullptr && occupied_now[u->id] != nullptr)
+      return true;
+    return false;
+  };
+
+  Nodes C = a->v_now->neighbor;
+  C.push_back(a->v_now);
+
+  std::sort(C.begin(), C.end(), compare);
+
+  // calculate ideal dist for penalty purposes
+  int ideal_dist = pathDist(a->id, C[0]);  // Distance to goal if taking ideal move
+  int actual_dist = pathDist(a->id, a->v_next); // Distance to goal based on suggested move
+  return actual_dist - ideal_dist;
 }
 
 void PIBTOLD::run()
@@ -56,7 +98,9 @@ void PIBTOLD::run()
     // acting
     bool check_goal_cond = true;
     Config config(P->getNum(), nullptr);
+    int best_tsp = 0;
     for (auto a : A) {
+      best_tsp += calculate_penalty(a);
       // clear
       if (occupied_now[a->v_now->id] == a) occupied_now[a->v_now->id] = nullptr;
       occupied_next[a->v_next->id] = nullptr;
@@ -74,6 +118,7 @@ void PIBTOLD::run()
 
     // update plan
     solution.add(config);
+    print_penalty("costs.txt", best_tsp);
 
     ++timestep;
 

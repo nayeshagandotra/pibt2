@@ -1,10 +1,10 @@
 ## ==== necessary ====
 ## .map file, put your maps in /map folder
-map_file=warehouse-20-40-10-2-2.map
+map_file=den520d.map
 ## map_file=den520d.map
 
 ## number of agents
-agents=540
+agents=200
 
 ## ==== custom =======
 ## seed of randomization
